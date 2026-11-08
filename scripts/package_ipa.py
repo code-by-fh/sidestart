@@ -57,7 +57,7 @@ def package(app, output):
     for binary in [app / info['CFBundleExecutable'],
                    app / 'Frameworks/Flutter.framework/Flutter',
                    app / 'Frameworks/App.framework/App']:
-        subprocess.run(['lipo', '-verify_arch', 'arm64', str(binary)], check=True)
+        subprocess.run(['lipo', str(binary), '-verify_arch', 'arm64'], check=True)
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='sidestart-ipa-') as staging:
         payload = Path(staging) / 'Payload'

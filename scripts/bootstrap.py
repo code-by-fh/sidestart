@@ -10,6 +10,9 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from xml.sax.saxutils import escape
+
+from configure_app import load_config
 
 ROOT = Path(__file__).resolve().parents[1]
 PLATFORMS = {
@@ -20,7 +23,7 @@ PLATFORMS = {
 }
 
 
-def configure_ios(directory: Path) -> None:
+def configure_ios(directory: Path, display_name: str = "SideStart") -> None:
     project = directory / PLATFORMS["ios"]
     content = project.read_text(encoding="utf-8")
     content, matches = re.subn(
@@ -34,7 +37,7 @@ def configure_ios(directory: Path) -> None:
     info_path = directory / "Runner/Info.plist"
     with info_path.open("rb") as stream:
         info = plistlib.load(stream)
-    info["CFBundleDisplayName"] = "SideStart"
+    info["CFBundleDisplayName"] = display_name
     with info_path.open("wb") as stream:
         plistlib.dump(info, stream, sort_keys=False)
     framework_info = directory / "Flutter/AppFrameworkInfo.plist"
@@ -47,6 +50,9 @@ def configure_ios(directory: Path) -> None:
 
 
 def bootstrap(root: Path, platforms: list[str], flutter: str) -> list[str]:
+    config = load_config(root)
+    project_name = config["projectName"]
+    display_name = config["displayName"]
     missing = []
     for platform in platforms:
         destination = root / platform
@@ -64,12 +70,12 @@ def bootstrap(root: Path, platforms: list[str], flutter: str) -> list[str]:
     # Generate outside the app: flutter create must never overwrite Dart source,
     # pubspec.yaml, tests, or custom native projects in this repository.
     with tempfile.TemporaryDirectory(prefix="sidestart-scaffold-") as temporary:
-        scaffold = Path(temporary) / "sidestart"
+        scaffold = Path(temporary) / project_name
         subprocess.run(
             [
                 flutter, "create", "--template=app", "--empty", "--no-pub",
-                f"--platforms={','.join(missing)}", "--org=dev.sidestart",
-                "--project-name=sidestart", str(scaffold),
+                f"--platforms={','.join(missing)}", f"--org={config['organization']}",
+                f"--project-name={project_name}", str(scaffold),
             ],
             check=True,
         )
@@ -78,15 +84,41 @@ def bootstrap(root: Path, platforms: list[str], flutter: str) -> list[str]:
             if not (source / PLATFORMS[platform]).is_file():
                 raise RuntimeError(f"Flutter did not generate a complete {platform} project.")
             if platform == "ios":
-                configure_ios(source)
+                configure_ios(source, display_name)
             elif platform == "android":
                 manifest = source / PLATFORMS[platform]
+                android_label = escape(display_name, {'"': "&quot;"})
                 manifest.write_text(
                     manifest.read_text(encoding="utf-8").replace(
-                        'android:label="sidestart"', 'android:label="SideStart"'
+                        f'android:label="{project_name}"',
+                        f'android:label="{android_label}"'
                     ),
                     encoding="utf-8",
                 )
+            elif platform == "web":
+                index = source / "index.html"
+                index.write_text(index.read_text(encoding="utf-8").replace(
+                    f"<title>{project_name}</title>", f"<title>{escape(display_name)}</title>"
+                ), encoding="utf-8")
+                manifest_path = source / "manifest.json"
+                if manifest_path.exists():
+                    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                    manifest.update(name=display_name, short_name=display_name)
+                    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            elif platform == "windows":
+                cpp_name = display_name.replace("\\", "\\\\").replace('"', '\\"')
+                for relative in ["runner/main.cpp", "runner/Runner.rc"]:
+                    path = source / relative
+                    if path.exists():
+                        text = path.read_text(encoding="utf-8")
+                        if relative.endswith("main.cpp"):
+                            text = text.replace(f'L"{project_name}"', f'L"{cpp_name}"')
+                        else:
+                            text = re.sub(
+                                r'(VALUE "(?:FileDescription|ProductName)", ")' + re.escape(project_name) + r'(")',
+                                lambda match: match.group(1) + cpp_name + match.group(2), text,
+                            )
+                        path.write_text(text, encoding="utf-8")
             shutil.copytree(source, root / platform)
             print(f"Created {platform}/")
         metadata = scaffold / ".metadata"

@@ -1,8 +1,7 @@
-"""Publish a SideStore source and IPA to a public downloads-only GitHub repo."""
+"""Publish an unsigned iOS app and SideStore source in its public GitHub repository."""
 from __future__ import annotations
 
 import argparse
-import base64
 import hashlib
 import json
 from pathlib import Path
@@ -30,6 +29,7 @@ class GitHub:
         result = subprocess.run(
             ['gh', *arguments], input=json.dumps(data) if data is not None else None,
             capture_output=True, text=True, encoding='utf-8',
+            cwd=Path(__file__).resolve().parents[1],
         )
         if result.returncode:
             raise GitHubError(arguments, result)
@@ -51,27 +51,12 @@ def ensure_public_repository(github, repository):
     endpoint = f'repos/{repository}'
     info = github.api(endpoint, missing_ok=True)
     if info is None:
-        github.run('repo', 'create', repository, '--public', '--description',
-                   'SideStart downloads: unsigned iOS app and SideStore source. No app source code.')
-        info = github.api(endpoint)
+        raise RuntimeError(f'{repository} does not exist. Create an app repository from the template first.')
     if info['private']:
         raise RuntimeError(
-            f'{repository} is private. Use a separate public downloads repository. '
+            f'{repository} is private. Make the app repository public before publishing. '
             'This script never changes repository visibility.'
         )
-    branches = github.api(f'{endpoint}/branches?per_page=1')
-    if not branches:
-        readme = (
-            '# SideStart downloads\n\n'
-            'Unsigned iOS app for personal signing with SideStore or AltStore Classic.\n\n'
-            f'Source URL: https://github.com/{repository}/releases/latest/download/altstore-source.json\n\n'
-            'This repository contains binary downloads and source metadata, not application code.\n'
-        )
-        github.api(f'{endpoint}/contents/README.md', method='PUT', data={
-            'message': 'Initialize SideStart downloads',
-            'content': base64.b64encode(readme.encode()).decode(),
-        })
-        info = github.api(endpoint)
     return info['default_branch']
 
 
@@ -109,7 +94,7 @@ def generate(ipa, repository, output, previous=None):
     return json.loads((output / 'altstore-source.json').read_text(encoding='utf-8'))
 
 
-def publish(ipa, repository, github=None):
+def publish(ipa, repository, github=None, target=None):
     github = github or GitHub()
     with tempfile.TemporaryDirectory(prefix='sidestart-source-') as temporary:
         staging = Path(temporary)
@@ -146,7 +131,7 @@ def publish(ipa, repository, github=None):
         else:
             if existing is None:
                 github.run('release', 'create', tag, '--repo', repository, '--draft',
-                           '--target', branch, '--title', f"SideStart {version['version']} ({version['buildVersion']})",
+                           '--target', target or branch, '--title', f"{current['apps'][0]['name']} {version['version']} ({version['buildVersion']})",
                            '--notes', 'Unsigned iOS app. Add the source URL to SideStore or AltStore Classic: ' + source_url)
             assets = [str(output / name) for name in (
                 'sidestart-ios-unsigned.ipa', 'sidestart-ios-unsigned.ipa.sha256',
@@ -172,11 +157,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repository')
     parser.add_argument('--ipa', type=Path)
+    parser.add_argument('--target', help='Exact source commit represented by this IPA')
     args = parser.parse_args()
     if args.repository is None:
-        configuration = Path(__file__).resolve().parents[1] / 'source-config.json'
-        args.repository = (json.loads(configuration.read_text(encoding='utf-8-sig'))['repository']
-                           if configuration.exists() else 'code-by-fh/sidestart-downloads')
+        args.repository = GitHub().run('repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner').strip()
     if not shutil.which('gh'):
         parser.error('GitHub CLI is missing. Install gh and run gh auth login.')
     ipa = args.ipa
@@ -186,7 +170,7 @@ def main():
             parser.error('No downloaded IPA found. Run publish.ps1 first or pass --ipa <path>.')
         ipa = max(candidates, key=lambda path: path.stat().st_mtime)
     print(f'Publishing IPA: {ipa}')
-    publish(ipa.resolve(), args.repository)
+    publish(ipa.resolve(), args.repository, target=args.target)
 
 
 if __name__ == '__main__':

@@ -139,8 +139,11 @@ def make_source(ipa: Path, repository: str, output_dir: Path,
     icon_url = base + '/releases/latest/download/icon.png'
     download_url = f'{base}/releases/download/{tag}/{IPA_NAME}'
     digest = hashlib.sha256(ipa.read_bytes()).hexdigest()
+    display_name = info.get('CFBundleDisplayName') or info.get('CFBundleName') or 'SideStart'
+    if not isinstance(display_name, str):
+        raise ValueError('The app display name must be a string')
     entry = {'version': version, 'buildVersion': build, 'date': release_date,
-             'localizedDescription': f'SideStart {version} ({build}).',
+             'localizedDescription': f'{display_name} {version} ({build}).',
              'downloadURL': download_url, 'size': ipa.stat().st_size,
              'minOSVersion': info['MinimumOSVersion']}
     history = []
@@ -168,12 +171,12 @@ def make_source(ipa: Path, repository: str, output_dir: Path,
                 history.append(item)
                 seen.add(identity)
     description = 'A minimal offline counter app. Install and refresh with SideStore or AltStore Classic.'
-    app = {'name': 'SideStart', 'bundleIdentifier': info['CFBundleIdentifier'],
+    app = {'name': display_name, 'bundleIdentifier': info['CFBundleIdentifier'],
            'developerName': repository.split('/')[0], 'localizedDescription': description,
            'iconURL': icon_url, 'tintColor': '63E6CB', 'category': 'utilities',
            'versions': [entry] + history, 'appPermissions': permissions}
-    source = {'name': 'SideStart', 'identifier': info['CFBundleIdentifier'] + '.source',
-              'sourceURL': source_url, 'subtitle': 'SideStart for SideStore and AltStore Classic',
+    source = {'name': display_name, 'identifier': info['CFBundleIdentifier'] + '.source',
+              'sourceURL': source_url, 'subtitle': f'{display_name} for SideStore and AltStore Classic',
               'description': description, 'iconURL': icon_url, 'website': base,
               'tintColor': '63E6CB', 'apps': [app], 'news': []}
     metadata = {'tag': tag, 'repository': repository, 'sourceURL': source_url,

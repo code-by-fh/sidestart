@@ -57,12 +57,13 @@ class PublisherTests(unittest.TestCase):
         github = FakeGitHub()
         with patch('publish_source.verify_public_downloads') as verify, \
                 contextlib.redirect_stdout(io.StringIO()):
-            url = publish(self.ipa, 'example/downloads', github)
+            url = publish(self.ipa, 'example/downloads', github, target='a' * 40)
         calls = [call[1] for call in github.calls if call[0] == 'run']
         actions = [call[:2] for call in calls]
         self.assertLess(actions.index(('release', 'create')), actions.index(('release', 'upload')))
         self.assertLess(actions.index(('release', 'upload')), actions.index(('release', 'edit')))
         self.assertIn('--draft', calls[actions.index(('release', 'create'))])
+        self.assertIn('a' * 40, calls[actions.index(('release', 'create'))])
         self.assertIn('--draft=false', calls[actions.index(('release', 'edit'))])
         self.assertEqual(url, 'https://github.com/example/downloads/releases/latest/download/altstore-source.json')
         self.assertEqual(github.uploaded_source['apps'][0]['versions'][0]['buildVersion'], '3')
@@ -75,12 +76,11 @@ class PublisherTests(unittest.TestCase):
         self.assertFalse(any(call[0] == 'run' and call[1][:2] == ('release', 'create') for call in github.calls))
         self.assertFalse(any(call[0] == 'run' and '--visibility' in call[1] for call in github.calls))
 
-    def test_new_public_repository_is_initialized_before_release(self):
+    def test_missing_app_repository_does_not_create_an_extra_repository(self):
         github = FakeGitHub(exists=False, empty=True)
-        self.assertEqual(ensure_public_repository(github, 'example/downloads'), 'main')
-        create = next(call[1] for call in github.calls if call[0] == 'run')
-        self.assertIn('--public', create)
-        self.assertTrue(any(call[0] == 'api' and call[1].endswith('contents/README.md') for call in github.calls))
+        with self.assertRaisesRegex(RuntimeError, 'Create an app repository from the template'):
+            ensure_public_repository(github, 'example/downloads')
+        self.assertFalse(any(call[0] == 'run' for call in github.calls))
 
     def test_anonymous_verification_checks_actual_ipa_bytes(self):
         ipa_bytes = self.ipa.read_bytes()

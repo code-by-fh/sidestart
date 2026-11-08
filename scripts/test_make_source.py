@@ -72,6 +72,13 @@ class SourceTests(unittest.TestCase):
         self.assertEqual(permissions['entitlements'], ['com.apple.security.application-groups'])
         self.assertEqual(permissions['privacy'], {'NSCameraUsageDescription': 'Scan a code.'})
 
+    def test_template_app_name_comes_from_built_ipa(self):
+        self.info['CFBundleDisplayName'] = 'Orbit Notes'
+        self.write_ipa()
+        self.generate()
+        self.assertEqual(self.source()['name'], 'Orbit Notes')
+        self.assertEqual(self.source()['apps'][0]['name'], 'Orbit Notes')
+
     def test_reject_simulator(self):
         self.info['CFBundleSupportedPlatforms'] = ['iPhoneSimulator']
         self.write_ipa()

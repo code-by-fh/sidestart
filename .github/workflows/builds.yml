@@ -3,39 +3,47 @@ name: Build apps
 on:
   push:
     branches: [main, master]
-    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# Finish a running publication before starting another build on this branch.
+# Release tags created below do not trigger another workflow.
 concurrency:
   group: builds-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  cancel-in-progress: false
 
 jobs:
   checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      configured: ${{ steps.template.outputs.configured }}
     steps:
       - uses: actions/checkout@v6
+      - name: Check template application identity
+        id: template
+        env:
+          SOURCE_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib
+          config = json.loads(pathlib.Path('app-config.json').read_text(encoding='utf-8-sig'))
+          ready = (os.environ['SOURCE_REPOSITORY'] == 'code-by-fh/sidestart'
+                   or config['projectName'] != 'sidestart'
+                   or config['organization'] != 'dev.sidestart')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as stream:
+              stream.write('configured=' + str(ready).lower() + '\n')
+          if not ready:
+              print('Template copy detected. Configure a unique --name or --organization with scripts/configure_app.py, then commit and push. Native builds and publication are skipped until then.')
+          PY
       - uses: subosito/flutter-action@v2
         with:
           flutter-version-file: .fvmrc
           channel: stable
           cache: true
-      - name: Validate release tag
-        if: startsWith(github.ref, 'refs/tags/')
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          python3 - <<'PY'
-          import os, pathlib, re
-          text = pathlib.Path('pubspec.yaml').read_text()
-          version = re.search(r'^version:\s*([^\s+]+)', text, re.MULTILINE).group(1)
-          if os.environ['RELEASE_TAG'] != 'v' + version:
-              raise SystemExit('Release tag must equal v + pubspec.yaml version: v' + version)
-          PY
       - run: python3 -m unittest discover -s scripts -p 'test_*.py'
       - run: flutter pub get
       - run: dart format lib test
@@ -44,6 +52,7 @@ jobs:
 
   ios:
     needs: checks
+    if: needs.checks.outputs.configured == 'true'
     runs-on: macos-26
     timeout-minutes: 35
     steps:
@@ -62,8 +71,8 @@ jobs:
       - run: python3 scripts/package_ipa.py
       - name: Generate SideStore source metadata
         env:
-          PUBLIC_DOWNLOAD_REPOSITORY: ${{ vars.PUBLIC_DOWNLOAD_REPOSITORY || format('{0}/sidestart-downloads', github.repository_owner) }}
-        run: python3 scripts/make_source.py --ipa dist/sidestart-ios-unsigned.ipa --repository "$PUBLIC_DOWNLOAD_REPOSITORY" --output-dir dist
+          SOURCE_REPOSITORY: ${{ github.repository }}
+        run: python3 scripts/make_source.py --ipa dist/sidestart-ios-unsigned.ipa --repository "$SOURCE_REPOSITORY" --output-dir dist
       - uses: actions/upload-artifact@v4
         with:
           name: sidestart-ios-unsigned
@@ -73,6 +82,7 @@ jobs:
 
   android:
     needs: checks
+    if: needs.checks.outputs.configured == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -100,23 +110,55 @@ jobs:
           retention-days: 30
 
   release:
-    if: startsWith(github.ref, 'refs/tags/')
-    needs: [ios, android]
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    needs: ios
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    concurrency:
+      group: source-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v4
+        with:
+          name: sidestart-ios-unsigned
+          path: release-assets
+      - name: Publish public IPA and SideStore source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          BUILD_COMMIT: ${{ github.sha }}
+        run: python3 scripts/publish_source.py --repository "$SOURCE_REPOSITORY" --ipa release-assets/sidestart-ios-unsigned.ipa --target "$BUILD_COMMIT"
+
+  attach-android:
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    needs: [android, release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
-          path: release-assets
-          merge-multiple: true
-      - name: Publish release downloads
+          name: sidestart-ios-unsigned
+          path: iosmetadata
+      - uses: actions/download-artifact@v4
+        with:
+          name: sidestart-android
+          path: android
+      - name: Read the release tag
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib
+          tag = json.loads(pathlib.Path('iosmetadata/release-metadata.json').read_text())['tag']
+          with open(os.environ['GITHUB_ENV'], 'a') as stream:
+              stream.write('RELEASE_TAG=' + tag + '\n')
+          PY
+      - name: Attach Android APK to the existing release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" --verify-tag --title "SideStart $RELEASE_TAG" --notes 'Download the unsigned iOS IPA and sign it with SideStore, AltStore Classic, or Sideloadly. The APK uses a development signing key for personal testing. See README.md for installation.'
-          fi
-          gh release upload "$RELEASE_TAG" release-assets/* --clobber
+        run: gh release upload "$RELEASE_TAG" android/app-release.apk --clobber

@@ -1,112 +1,77 @@
 # SideStart
 
-Minimale Flutter-App mit Offline-Zähler für iOS, Android, Windows und Web. GitHub Actions baut eine unsignierte iOS-Geräte-App und verpackt sie als IPA zum anschließenden Signieren mit SideStore, AltStore Classic oder Sideloadly. Ein eigener Mac und Apple-Signierungsgeheimnisse in GitHub sind für diesen Build-Weg nicht erforderlich.
+Flutter-Starter und GitHub-Template für eigene iOS-, Android-, Windows- und Web-Apps. GitHub Actions baut eine unsignierte iOS-Geräte-App, veröffentlicht IPA und Source-JSON direkt in diesem Repository und hängt die Android-APK an denselben Release an. Lizenz: [MIT](LICENSE).
 
-## Stand und Voraussetzungen
+## SideStart installieren
 
-Dieses Projekt wurde unter Windows vorbereitet. Flutter ist auf dem Entwicklungsrechner noch nicht installiert; deshalb wurden Flutter-Analyse, Widget-Tests und native Builds dort noch nicht ausgeführt. Es gibt noch keinen bestätigten GitHub-Actions-Lauf und keinen Installationstest auf einem iPhone. Eine lauffähige IPA lässt sich erst nach einem erfolgreichen macOS-Build und der anschließenden Signierung auf dem Gerät bestätigen.
+Nach erfolgreicher Veröffentlichung diese Quelle in SideStore unter **Sources → + / Add Source** hinzufügen:
 
-Die Flutter-Version ist in `.fvmrc` festgelegt: **3.47.9**. Die Startversion der App ist **0.1.0+1**, die iOS-Mindestversion **15.0**. Installiere diese Flutter-Version über [die offiziellen Windows-Anweisungen](https://docs.flutter.dev/install/manual) beziehungsweise einen Versionsmanager und ergänze `flutter/bin` im PATH. Zusätzlich werden Git, Python **3.10+** und für den Push die [GitHub CLI](https://cli.github.com/) benötigt. Für den ersten lokalen Web-Test reicht Chrome; Android- und Windows-Desktop-Builds benötigen die jeweiligen Flutter-Werkzeuge.
-
-Die nativen Plattformverzeichnisse werden bei der ersten Einrichtung mit `scripts/bootstrap.py` aus den offiziellen Vorlagen der festgelegten Flutter-Version erzeugt. Sie sind anfangs noch nicht enthalten, weil das SDK hier fehlt. Der Generator erhält bereits vorhandene Plattformverzeichnisse. Nach der ersten erfolgreichen Erzeugung sollen diese Verzeichnisse ins Repository aufgenommen werden; spätere native Anpassungen gehören dort hinein. Auch CI ruft den Generator auf und kann das vorbereitete Repository deshalb bereits bauen.
-
-## Projekt an den gewünschten Ort übernehmen
-
-Die aktuelle Umgebung erlaubt das Schreiben nach `C:\Development` nicht. Das vorbereitete Projekt liegt deshalb unter `%LOCALAPPDATA%\Temp\sidestart`. Kopiere es vor der weiteren Arbeit mit einer normalen PowerShell in dein Entwicklungsverzeichnis. Der folgende Befehl bricht ab, falls das Ziel bereits existiert, und überschreibt kein vorhandenes Projekt:
-
-```powershell
-$sourcePath = Join-Path $env:LOCALAPPDATA 'Temp\sidestart'
-$targetPath = 'C:\Development\sidestart'
-if (Test-Path -LiteralPath $targetPath) { throw "Ziel existiert bereits: $targetPath" }
-New-Item -ItemType Directory -Path 'C:\Development' -Force | Out-Null
-Copy-Item -LiteralPath $sourcePath -Destination $targetPath -Recurse -Force
-Set-Location -LiteralPath $targetPath
+```text
+https://github.com/code-by-fh/sidestart/releases/latest/download/altstore-source.json
 ```
 
-## Lokal starten
+Die IPA wird mit deinem eigenen Apple Account signiert. SideStore benötigt seine übliche Einrichtung, WLAN und die lokale VPN-Verbindung. Bei kostenloser Signierung muss die App regelmäßig erneuert werden. Details: [Sideloading](docs/SIDELOADING.md).
 
-Für den ersten IPA-Build brauchst du lokal kein Flutter-SDK: Überspringe diesen Abschnitt und verwende direkt `publish.ps1` im nächsten Abschnitt. Das SDK und die nativen Plattformdateien werden dann auf GitHub eingerichtet.
+## Für eine neue App verwenden
 
-Für lokale Entwicklung kannst du das gepinnte SDK mit geprüftem Download installieren:
+Auf GitHub **Use this template → Create a new repository** wählen und das neue App-Repository öffentlich anlegen. Alternativ mit GitHub CLI:
+
+```powershell
+gh repo create meine-app --template code-by-fh/sidestart --public --clone
+cd meine-app
+python scripts/configure_app.py --name meine_app --organization dev.meinname --display-name "Meine App"
+git add app-config.json pubspec.yaml lib test
+git commit -m "Configure new app"
+git push
+```
+
+`dev.meinname` und `meine_app` für jede App passend wählen. Flutter erzeugt daraus deren Plattformkennungen. Einzigartige Kennungen ermöglichen die parallele Installation mehrerer Apps. `app-config.json` enthält Projektname, Organisation und Anzeigename. Der Einrichtungsbefehl passt auch Paketimporte, `pubspec.yaml` und die Titel der Beispielapp an.
+
+**Vor dem ersten Erzeugen nativer Plattformverzeichnisse konfigurieren.** Bei bereits vorhandenen nativen Projekten bricht das Skript ab, damit keine alten Bundle-IDs bestehen bleiben. Unveränderte Template-Kopien führen zunächst nur Checks aus. iOS-/Android-Builds und Veröffentlichung starten nach dem Commit eines eigenen Projektnamens oder einer eigenen Organisation.
+
+Nach dem erfolgreichen Build lautet die neue Source-URL:
+
+```text
+https://github.com/DEIN-ACCOUNT/DEIN-REPOSITORY/releases/latest/download/altstore-source.json
+```
+
+Die Pipeline übernimmt automatisch den Namen des neuen GitHub-Repositories und die Metadaten der gebauten IPA. Ein zusätzliches Download-Repository oder Apple-Zertifikat in GitHub ist nicht nötig.
+
+## Lokal entwickeln
+
+Benötigt werden Python 3.10+, Git und das Flutter-SDK aus `.fvmrc`. Für einen ersten Test unter Windows reicht Chrome. Das SDK kann mit geprüftem Download installiert werden:
 
 ```powershell
 .\scripts\install-flutter.ps1
-```
-
-Das Skript lädt das Windows-SDK aus dem offiziellen Flutter-Archiv, prüft dessen SHA-256 und zeigt den Befehl für den PATH an. Es benötigt Netzwerkzugriff und mehrere GB freien Speicher. Es verändert den systemweiten PATH nicht. Bereits vorhandene SDK-Zielverzeichnisse werden nicht überschrieben.
-
-```powershell
-flutter --version
-python --version
+# Den vom Skript ausgegebenen PATH-Befehl ausführen, dann:
 .\setup.ps1 -Device chrome
 ```
 
-Das Setup erzeugt die Plattformdateien und führt Dependency-Auflösung, Analyse und Tests aus, bevor es die App startet. Alternativ einzeln:
+`bootstrap.py` erzeugt fehlende Plattformprojekte aus den offiziellen Vorlagen des gepinnten SDKs und erhält bestehende Dateien. Erzeugte native Verzeichnisse können für spätere eigene Anpassungen mit ins Repository aufgenommen werden.
+
+Prüfungen:
 
 ```powershell
-python scripts/bootstrap.py
+python -m unittest discover -s scripts -p test_*.py
 flutter pub get
 flutter analyze
 flutter test
-flutter run -d chrome
 ```
 
-Der Zähler dient als kleiner Funktionstest. Sein Stand wird beim Neustart zurückgesetzt; es gibt kein Konto und keinen Server.
+## Builds und Releases
 
-## Repository pushen und IPA bauen
+Jeder Push auf `main` oder `master` baut und veröffentlicht die App. Manuelle Läufe sind ebenfalls möglich. Pull Requests veröffentlichen nichts. Die erzeugten Release-Tags wie `v0.1.0-build.3` lösen keine weiteren Builds aus. Die Buildnummer stammt aus `github.run_number`, die sichtbare Version aus `pubspec.yaml`.
 
-Der kürzeste Weg nach dem Kopieren des Projekts:
+Die Source-JSON übernimmt Bundle-ID, App-Name, Version, Buildnummer, Mindest-iOS-Version, Größe und Berechtigungen aus der tatsächlichen IPA. Die Versionshistorie bleibt erhalten. Ein Release wird zunächst als Entwurf mit vollständigen Dateien vorbereitet und erst danach freigeschaltet. Ein Android-Fehler verhindert die iOS-Veröffentlichung nicht.
+
+Das Repository muss öffentlich sein; die Pipeline verwendet ausschließlich das automatisch bereitgestellte `GITHUB_TOKEN` mit Schreibrechten im Release-Job. Für erste Template-Kopien können GitHub Actions beziehungsweise deren Schreibrechte einmalig aktiviert werden müssen.
+
+Die Android-APK verwendet eine Entwicklungs-Signierung für persönliche Tests. Für dauerhafte Android-Updates später einen festen eigenen Schlüssel einrichten.
+
+## Vorhandene IPA manuell veröffentlichen
 
 ```powershell
-gh auth login
-.\publish.ps1
+python scripts/publish_source.py --ipa downloads/run-123/sidestart-ios-unsigned.ipa
 ```
 
-`publish.ps1` verwendet den vorhandenen lokalen Git-Commit beziehungsweise erstellt bei einem entpackten Archiv den Erstcommit, legt ohne vorhandenen `origin` ein **privates** Repository namens `sidestart` an, pusht und wartet auf den Actions-Lauf genau dieses Commits. Danach lädt es die IPA und ihre Prüfsumme nach `downloads/run-<ID>/`. Ein anderer Name ist mit `-Repository mein-app-name` möglich. Bestehende Remotes werden verwendet. Uncommittete Änderungen musst du vorher prüfen und committen. Wenn GitHub Actions für dein Konto deaktiviert ist oder keine macOS-Minuten verfügbar sind, muss das zuerst auf GitHub behoben werden.
-
-Die folgenden Einzelbefehle sind eine Alternative zum Hilfsskript, nicht zusätzlich erforderlich.
-
-Die GitHub-Anmeldung auf diesem Rechner ist aktuell ungültig. Melde dich zunächst selbst an; Apple-Zugangsdaten werden für CI nicht benötigt:
-
-```powershell
-gh auth login
-gh auth status
-git init -b main
-git add .
-git commit -m "Initial SideStart Flutter app and sideload builds"
-gh repo create sidestart --private --source . --remote origin --push
-```
-
-Falls du bereits ein Git-Repository eingerichtet hast, überspringe Initialisierung und Erstcommit und verwende gegebenenfalls deinen vorhandenen Remote. Der neue private Repositoryname `sidestart` muss in deinem Account noch frei sein. GitHub Actions muss für das Repository aktiviert sein; bei privaten Repositories können verfügbare Minuten beziehungsweise Abrechnung die macOS-Ausführung begrenzen.
-
-Der Workflow [builds.yml](.github/workflows/builds.yml) startet bei Pushes auf `main` und `master`, bei passenden Versionstags und manuell. Die normale Push-Ausführung liefert die IPA als Actions-Artefakt. Prüfe den tatsächlichen Lauf und lade dessen Artefakte herunter:
-
-```powershell
-gh run list --workflow builds.yml --limit 5
-gh run watch <RUN_ID> --exit-status
-gh run download <RUN_ID> --dir downloads
-Get-ChildItem -Path downloads -Recurse -Filter *.ipa
-```
-
-Ersetze `<RUN_ID>` durch die numerische ID des gewünschten Laufs. `gh run download` entpackt die Artefaktarchive; die IPA selbst bleibt eine Datei. Bei Bedarf manuell neu starten:
-
-```powershell
-gh workflow run builds.yml --ref main
-```
-
-Für einen versionierten GitHub Release mit IPA, SHA-256-Prüfsumme und Android-APK:
-
-```powershell
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-Der Tag muss zur Version in `pubspec.yaml` passen. Für Folgeversionen zuerst die Version ändern, committen und pushen; anschließend den passenden neuen Tag anlegen. Releases eines privaten Repositories bleiben privat. Eine öffentliche SideStore-Quelle ist für den direkten Import der heruntergeladenen IPA nicht nötig.
-
-Die CI-Buildnummer kommt aus `github.run_number`; die sichtbare App-Version stammt aus `pubspec.yaml`. Die Android-APK verwendet für diesen Starter eine Entwicklungs-Signierung. Da die CI-Testschlüssel zwischen Läufen wechseln können, kann bei Android-Updates eine Neuinstallation nötig sein. Für dauerhaft verteilte Android-Apps später einen festen eigenen Signierschlüssel konfigurieren.
-
-## Auf dem iPhone installieren
-
-Die erzeugte IPA ist **unsigniert** und kann nicht direkt durch Antippen installiert werden. SideStore oder ein anderer Sideloader signiert sie mit deinem Apple Account. Die Anleitung mit Windows-Einrichtung, Developer Mode und regelmäßiger Erneuerung steht in [docs/SIDELOADING.md](docs/SIDELOADING.md).
-
-Die technischen Quellen und Entscheidungen sind in [docs/RESEARCH.md](docs/RESEARCH.md) dokumentiert. Der tatsächlich ausgeführte Prüfstand steht in [docs/VALIDATION.md](docs/VALIDATION.md).
+Das Ziel wird aus dem aktuellen GitHub-Repository ermittelt. Ein anderes Ziel lässt sich explizit mit `--repository owner/repo` angeben. Bestehende private Repositories werden vom Publisher nicht eigenständig öffentlich gemacht.

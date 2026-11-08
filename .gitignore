@@ -1,0 +1,48 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+coverage/
+
+# Editors and local SDK paths
+.idea/
+.vscode/
+*.iml
+.fvm/
+android/local.properties
+android/key.properties
+
+# Native build products and generated configuration
+**/Flutter/ephemeral/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/App.framework/
+ios/Flutter/Flutter.framework/
+ios/Pods/
+ios/.symlinks/
+**/xcuserdata/
+**/DerivedData/
+**/GeneratedPluginRegistrant.*
+**/flutter/generated_plugin_registrant.*
+**/flutter/generated_plugins.cmake
+windows/flutter/ephemeral/
+android/.gradle/
+android/captures/
+
+# Credentials / output
+.env
+.env.*
+*.p12
+*.mobileprovision
+*.jks
+*.keystore
+*.ipa
+*.apk
+dist/
+downloads/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db

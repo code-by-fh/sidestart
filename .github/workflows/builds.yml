@@ -1,0 +1,118 @@
+name: Build apps
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: builds-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: .fvmrc
+          channel: stable
+          cache: true
+      - name: Validate release tag
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re
+          text = pathlib.Path('pubspec.yaml').read_text()
+          version = re.search(r'^version:\s*([^\s+]+)', text, re.MULTILINE).group(1)
+          if os.environ['RELEASE_TAG'] != 'v' + version:
+              raise SystemExit('Release tag must equal v + pubspec.yaml version: v' + version)
+          PY
+      - run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - run: flutter pub get
+      - run: dart format lib test
+      - run: flutter analyze
+      - run: flutter test
+
+  ios:
+    needs: checks
+    runs-on: macos-26
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: .fvmrc
+          channel: stable
+          cache: true
+      - run: python3 scripts/bootstrap.py --platforms ios
+      - run: flutter pub get
+      - name: Build unsigned device release
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: flutter build ios --release --no-codesign --build-number "$BUILD_NUMBER"
+      - run: python3 scripts/package_ipa.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sidestart-ios-unsigned
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+  android:
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: .fvmrc
+          channel: stable
+          cache: true
+      - run: python3 scripts/bootstrap.py --platforms android
+      - run: flutter pub get
+      - name: Build installable release APK
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: flutter build apk --release --build-number "$BUILD_NUMBER"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sidestart-android
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [ios, android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Publish release downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --verify-tag --title "SideStart $RELEASE_TAG" --notes 'Download the unsigned iOS IPA and sign it with SideStore, AltStore Classic, or Sideloadly. The APK uses a development signing key for personal testing. See README.md for installation.'
+          fi
+          gh release upload "$RELEASE_TAG" release-assets/* --clobber

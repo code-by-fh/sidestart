@@ -53,7 +53,7 @@ try {
     for ($attempt = 0; $attempt -lt 24; $attempt++) {
         $runJson = & gh run list --workflow builds.yml --branch $branch --commit $commit --event push --limit 1 --json databaseId
         if ($LASTEXITCODE -eq 0) {
-            $runs = @($runJson | ConvertFrom-Json)
+            $runs = @(ConvertFrom-Json -InputObject ($runJson -join "`n") | ForEach-Object { $_ })
             if ($runs.Count -gt 0) {
                 $buildRun = $runs[0].databaseId
                 break
@@ -64,7 +64,12 @@ try {
     if (-not $buildRun) {
         throw 'No push build found. Check GitHub Actions permissions and gh run list --workflow builds.yml.'
     }
-    Invoke-Checked gh @('run', 'watch', "$buildRun", '--exit-status')
+    & gh run watch "$buildRun" --exit-status
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "GitHub-Build $buildRun fehlgeschlagen. Fehlerprotokoll:"
+        & gh run view "$buildRun" --log-failed
+        throw "Build $buildRun failed. The job log above contains the actual build error."
+    }
     $downloadDirectory = Join-Path $PSScriptRoot "downloads\run-$buildRun"
     Invoke-Checked gh @('run', 'download', "$buildRun", '--name', 'sidestart-ios-unsigned', '--dir', $downloadDirectory)
     Write-Host "IPA und Pruefsumme: $downloadDirectory"

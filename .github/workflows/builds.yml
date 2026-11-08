@@ -60,6 +60,10 @@ jobs:
           BUILD_NUMBER: ${{ github.run_number }}
         run: flutter build ios --release --no-codesign --build-number "$BUILD_NUMBER"
       - run: python3 scripts/package_ipa.py
+      - name: Generate SideStore source metadata
+        env:
+          PUBLIC_DOWNLOAD_REPOSITORY: ${{ vars.PUBLIC_DOWNLOAD_REPOSITORY || format('{0}/sidestart-downloads', github.repository_owner) }}
+        run: python3 scripts/make_source.py --ipa dist/sidestart-ios-unsigned.ipa --repository "$PUBLIC_DOWNLOAD_REPOSITORY" --output-dir dist
       - uses: actions/upload-artifact@v4
         with:
           name: sidestart-ios-unsigned

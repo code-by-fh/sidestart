@@ -24,7 +24,7 @@ try {
     }
     & gh auth status
     if ($LASTEXITCODE -ne 0) {
-        throw 'GitHub-Anmeldung fehlt oder ist abgelaufen. Zuerst gh auth login ausfuehren.'
+        throw 'GitHub authentication is missing or expired. Run gh auth login first.'
     }
     if (-not (Test-Path -LiteralPath '.git')) {
         Invoke-Checked git @('init', '-b', 'main')
@@ -48,7 +48,7 @@ try {
         Invoke-Checked git @('push', '-u', 'origin', $branch)
     }
 
-    Write-Host "Warte auf den Build fuer $commit ..."
+    Write-Host "Waiting for the build of $commit ..."
     $buildRun = $null
     for ($attempt = 0; $attempt -lt 24; $attempt++) {
         $runJson = & gh run list --workflow builds.yml --branch $branch --commit $commit --event push --limit 1 --json databaseId
@@ -66,14 +66,14 @@ try {
     }
     & gh run watch "$buildRun" --exit-status
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "GitHub-Build $buildRun fehlgeschlagen. Fehlerprotokoll:"
+        Write-Host "GitHub build $buildRun failed. Job error log:"
         & gh run view "$buildRun" --log-failed
         throw "Build $buildRun failed. The job log above contains the actual build error."
     }
     $downloadDirectory = Join-Path $PSScriptRoot "downloads\run-$buildRun"
     Invoke-Checked gh @('run', 'download', "$buildRun", '--name', 'sidestart-ios-unsigned', '--dir', $downloadDirectory)
-    Write-Host "IPA und Pruefsumme: $downloadDirectory"
-    Write-Host 'Die IPA jetzt auf das iPhone uebertragen und mit SideStore importieren.'
+    Write-Host "IPA and checksum: $downloadDirectory"
+    Write-Host 'Transfer the IPA to your iPhone and import it with SideStore.'
 } finally {
     Pop-Location
 }

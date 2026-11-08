@@ -1,45 +1,61 @@
-# SideStart auf einem iPhone installieren
+# Install SideStart on an iPhone
 
-## Was der Build liefert
+## Build output
 
-GitHub Actions kompiliert Flutter im **Release-Modus für ein echtes iOS-Gerät** auf einem macOS-Runner. Anschließend wird `Runner.app` unter `Payload/Runner.app` in eine IPA gepackt. Die Datei trägt noch keine verwendbare Apple-Entwicklersignatur. SideStore, AltStore Classic oder Sideloadly übernimmt das Signieren und die Installation mit deinem eigenen Apple Account. Ein Simulator-Build ist dafür ungeeignet.
+GitHub Actions compiles Flutter in **release mode for a physical iOS device** on a macOS runner. It packages `Runner.app` as `Payload/Runner.app` inside an IPA. The file has no usable Apple developer signature yet. SideStore, AltStore Classic, or Sideloadly signs and installs it with your own Apple Account. A simulator build cannot be used for this process.
 
-Der erfolgreiche CI-Build prüft die Erstellung und Paketstruktur; die tatsächliche Installation und Bedienung auf deinem iPhone bleibt ein separater Test. Dieser Test wurde bei der Vorbereitung noch nicht durchgeführt.
+A successful CI build verifies compilation and package structure. Installation and interaction on an iPhone require a separate device test. No confirmed device test is recorded in [VALIDATION.md](VALIDATION.md).
 
-## SideStore mit Windows einrichten
+## Set up SideStore using Windows
 
-Verwende die aktuellen offiziellen Anleitungen für [Voraussetzungen](https://docs.sidestore.io/docs/installation/prerequisites) und [Installation](https://docs.sidestore.io/docs/installation/install). Die hier überprüfte Einrichtung verwendet **iloader und LocalDevVPN**:
+Follow the current official [prerequisites](https://docs.sidestore.io/docs/installation/prerequisites) and [installation instructions](https://docs.sidestore.io/docs/installation/install). The setup reviewed for this project uses **iloader and LocalDevVPN**:
 
-1. Bereithalten: iPhone mit Gerätecode und unterstützter iOS-Version, Apple Account, WLAN und einen Windows-Rechner für die Ersteinrichtung. SideStore selbst unterstützt laut Anleitung iOS 15 oder neuer; maßgeblich für SideStart ist zusätzlich die Mindestversion der gebauten IPA.
-2. Die in der offiziellen Anleitung genannten Apple-Gerätetreiber beziehungsweise iTunes und iloader unter Windows installieren.
-3. LocalDevVPN gemäß SideStore-Anleitung auf dem iPhone installieren.
-4. Das iPhone per USB verbinden und dem Rechner vertrauen. In iloader mit dem Apple Account anmelden und „Install SideStore (Stable)“ wählen.
-5. Auf dem iPhone unter Einstellungen → Allgemein → VPN und Geräteverwaltung dem Entwicklerprofil vertrauen. Ab iOS 16 zusätzlich unter Datenschutz & Sicherheit den Entwicklermodus aktivieren und den angeforderten Neustart durchführen. Die genauen Dialoge unterscheiden sich nach iOS-Version.
-6. WLAN verwenden, LocalDevVPN verbinden, SideStore öffnen und mit demselben Apple Account anmelden.
-7. Unter „My Apps“ SideStore einmal manuell aktualisieren, wie in der offiziellen Anleitung beschrieben.
+1. Prepare an iPhone with a passcode and supported iOS version, an Apple Account, Wi-Fi, and a Windows computer for initial setup. SideStore's documented minimum is iOS 15; the built IPA's minimum version also applies.
+2. Install the Apple device drivers or iTunes and iloader specified in the official Windows instructions.
+3. Install LocalDevVPN on the iPhone as directed by SideStore.
+4. Connect the iPhone over USB and trust the computer. Sign in to iloader with your Apple Account and choose **Install SideStore (Stable)**.
+5. On the iPhone, trust the developer profile under **Settings → General → VPN & Device Management**. On iOS 16 or later, also enable **Developer Mode** under **Privacy & Security** and complete the requested restart. Dialogs vary by iOS version.
+6. Connect to Wi-Fi and LocalDevVPN, open SideStore, and sign in with the same Apple Account.
+7. Manually refresh SideStore once under **My Apps**, as described in its official instructions.
 
-Apple-Zugangsdaten werden ausschließlich in der von dir eingerichteten Signierungssoftware verwendet. Für dieses Projekt kommen sie weder in Quelldateien noch in GitHub Actions Secrets.
+Apple credentials belong only in the signing software you configure. This project does not put them in source files or GitHub Actions secrets.
 
-## Die IPA importieren
+## Install from a source
 
-1. Einen erfolgreichen Lauf von `.github/workflows/builds.yml` abwarten.
-2. Das IPA-Artefakt aus dem Actions-Lauf herunterladen und das äußere Artefakt-ZIP entpacken. Alternativ die IPA aus dem GitHub Release herunterladen. Bei privaten Repositories ist dafür eine GitHub-Anmeldung erforderlich.
-3. Die `.ipa` auf das iPhone in die Dateien-App übertragen, beispielsweise über einen von dir verwendeten Dateitransferdienst.
-4. WLAN und LocalDevVPN aktivieren. In SideStore unter „My Apps“ mit „+“ die IPA auswählen beziehungsweise über die angebotene Importfunktion öffnen.
-5. Nach erfolgreicher Signierung und Installation SideStart öffnen. Zähler erhöhen und zurücksetzen; Bildschirmdrehen und einen Neustart der App prüfen.
+After a successful public release, add the app source in **SideStore → Sources → + / Add Source**:
 
-Die IPA muss zum Import nicht öffentlich gehostet werden. Die JSON-Quelle, wie sie NOOP anbietet, ist eine spätere Komfortfunktion für Veröffentlichung und Updates. Für dieses private Starterprojekt genügt der direkte IPA-Import.
+```text
+https://github.com/code-by-fh/sidestart/releases/latest/download/altstore-source.json
+```
 
-## Gültigkeit und Updates
+Alternatively, add the shared catalog:
 
-Ein kostenloser Apple Account erlaubt laut [Apple](https://developer.apple.com/help/account/basics/about-your-developer-account) drei installierte Entwicklungsapps pro Gerät sowie zehn App IDs; die Provisionierung läuft nach sieben Tagen ab. Laut [SideStore FAQ](https://docs.sidestore.io/docs/faq) zählt SideStore selbst zu den drei aktiven Apps.
+```text
+https://raw.githubusercontent.com/code-by-fh/ios-apps/main/altstore-source.json
+```
 
-SideStore versucht Apps im Hintergrund rechtzeitig zu erneuern. Prüfe die Restlaufzeit und eine erfolgreiche Erneuerung regelmäßig; WLAN und die von SideStore verlangte lokale VPN-Verbindung müssen verfügbar sein. Vor Ablauf kann man die Erneuerung auch manuell anstoßen. Nach Updates oder Zurücksetzen des iPhones kann die Einrichtung beziehungsweise Pairing-Datei erneuert werden müssen.
+The shared catalog is refreshed manually on GitHub. Publishing a new app release does not automatically update it. After its refresh workflow succeeds, refresh the source list in SideStore to see the new catalog contents.
 
-Für ein App-Update die neue IPA aus einem erfolgreichen Build importieren. Behalte die Bundle-ID bei, damit die Signierungssoftware das Paket als dieselbe App behandeln kann. Ändere Versions- und Buildnummer in `pubspec.yaml` für neue veröffentlichte Versionen. Die Beispielapp verwendet keine zusätzlichen Apple-Capabilities und keine App-Erweiterungen.
+## Import an IPA directly
 
-## Bei Problemen
+1. Wait for the iOS job in `.github/workflows/builds.yml` to succeed.
+2. Download its IPA artifact and extract the outer GitHub artifact ZIP, or download the IPA from the GitHub release. Private artifact downloads require GitHub authentication.
+3. Transfer the `.ipa` to the iPhone's Files app using your preferred file transfer method.
+4. Enable Wi-Fi and LocalDevVPN. In SideStore, use **My Apps → +** to select the IPA, or use its available import action.
+5. After signing and installation succeed, open SideStart. Increase and reset the counter, rotate the screen, and restart the app.
 
-Prüfe zuerst, dass der GitHub-Lauf vollständig erfolgreich war, die Datei wirklich auf `.ipa` endet und das äußere GitHub-Artefaktarchiv entpackt wurde. Kontrolliere anschließend Entwicklerprofil, Entwicklermodus, WLAN, LocalDevVPN, App-Limit und Restgültigkeit. Falls die Signierung scheitert, den konkreten SideStore-Fehler unter [Troubleshooting](https://docs.sidestore.io/docs/troubleshooting) nachschlagen.
+Direct IPA import does not require public hosting. A source provides a convenient listing and update mechanism once public metadata, icon, and IPA URLs are available.
 
-AltStore **Classic** oder [Sideloadly](https://sideloadly.io/) sind alternative Signierungswerkzeuge. AltStore PAL verwendet einen anderen Distributionsweg und ist nicht der hier beschriebene Import unsignierter Entwicklungs-IPAs.
+## Expiration and updates
+
+According to [Apple](https://developer.apple.com/help/account/basics/about-your-developer-account), free account provisioning has limits including three development apps per device, ten App IDs, and seven-day provisioning validity. The [SideStore FAQ](https://docs.sidestore.io/docs/faq) states that SideStore itself uses one of the three active app slots.
+
+SideStore attempts background renewal before expiration. Check the remaining validity and successful renewal regularly. Wi-Fi and the local VPN connection required by SideStore must be available. You can also renew manually before expiration. iPhone updates or resets may require repeating setup or renewing the pairing file.
+
+For an app update, refresh its source listing or import the new IPA from a successful build. Keep the bundle identifier unchanged so the signing tool can recognize the same app. Update the version in `pubspec.yaml` for a new app version; CI supplies the build number from `github.run_number`. The example app uses no additional Apple capabilities or app extensions.
+
+## Troubleshooting
+
+First check that the iOS build and packaging succeeded, the file ends in `.ipa`, and the outer GitHub artifact ZIP has been extracted. Then check the developer profile, Developer Mode, Wi-Fi, LocalDevVPN, app limit, and remaining validity. Look up the specific signing error in [SideStore troubleshooting](https://docs.sidestore.io/docs/troubleshooting).
+
+AltStore **Classic** and [Sideloadly](https://sideloadly.io/) are alternative signing tools. AltStore PAL uses a different distribution process from the unsigned development IPA import described here.

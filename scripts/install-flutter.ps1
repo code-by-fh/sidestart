@@ -22,7 +22,7 @@ if (Test-Path -LiteralPath $versionDirectory) {
 }
 New-Item -ItemType Directory -Path $versionDirectory -Force | Out-Null
 $sdkZip = Join-Path $versionDirectory 'flutter-sdk.zip'
-Write-Host "Lade Flutter $flutterPin. Das SDK benoetigt mehrere GB freien Speicher."
+Write-Host "Downloading Flutter $flutterPin. The SDK requires several GB of free disk space."
 Invoke-WebRequest -Uri ($releaseIndex.base_url + '/' + $flutterRelease.archive) -OutFile $sdkZip -UseBasicParsing
 $actualHash = (Get-FileHash -LiteralPath $sdkZip -Algorithm SHA256).Hash
 if ($actualHash -ne $flutterRelease.sha256) {
@@ -31,7 +31,7 @@ if ($actualHash -ne $flutterRelease.sha256) {
 Expand-Archive -LiteralPath $sdkZip -DestinationPath $versionDirectory
 Remove-Item -LiteralPath $sdkZip
 $flutterBinDirectory = Split-Path -Parent $flutterBinary
-Write-Host "SDK installiert: $flutterBinDirectory"
-Write-Host 'In dieser PowerShell-Sitzung ausfuehren:'
+Write-Host "SDK installed: $flutterBinDirectory"
+Write-Host 'Run this in the current PowerShell session:'
 Write-Host ('$env:Path = ''' + $flutterBinDirectory + ';'' + $env:Path')
-Write-Host 'Danach im Projekt: .\setup.ps1 -Device chrome'
+Write-Host 'Then run from the project directory: .\setup.ps1 -Device chrome'

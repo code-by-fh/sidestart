@@ -61,14 +61,14 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Ein kleiner Anfang.',
+                    'A small beginning.',
                     style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Deine erste App ist da. Probier sie aus.',
+                    'Your first app is here. Give it a try.',
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                   const SizedBox(height: 32),
@@ -78,11 +78,11 @@ class _HomePageState extends State<HomePage> {
                       padding: const EdgeInsets.all(28),
                       child: Column(
                         children: [
-                          const Text('DEIN ZÄHLER'),
+                          const Text('YOUR COUNTER'),
                           const SizedBox(height: 12),
                           Semantics(
                             liveRegion: true,
-                            label: 'Zählerstand',
+                            label: 'Counter value',
                             child: Text(
                               '$_count',
                               key: const ValueKey('counter-value'),
@@ -97,7 +97,7 @@ class _HomePageState extends State<HomePage> {
                             key: const ValueKey('increment-button'),
                             onPressed: () => setState(() => _count++),
                             icon: const Icon(Icons.add_rounded),
-                            label: const Text('Eins dazu'),
+                            label: const Text('Add one'),
                           ),
                           const SizedBox(height: 8),
                           TextButton(
@@ -105,7 +105,7 @@ class _HomePageState extends State<HomePage> {
                             onPressed: _count == 0
                                 ? null
                                 : () => setState(() => _count = 0),
-                            child: const Text('Zurücksetzen'),
+                            child: const Text('Reset'),
                           ),
                         ],
                       ),
@@ -113,7 +113,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Ganz ohne Konto. Ganz bei dir.',
+                    'No account. Just your app.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),

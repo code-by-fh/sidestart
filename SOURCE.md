@@ -1,21 +1,37 @@
-# App und Source im selben Repository
+# App and source in the same repository
 
-SideStart veröffentlicht die IPA und die AltStore-/SideStore-Source direkt unter den Releases von `code-by-fh/sidestart`:
+SideStart publishes its IPA and AltStore/SideStore source as release assets in `code-by-fh/sidestart`:
 
 ```text
 https://github.com/code-by-fh/sidestart/releases/latest/download/altstore-source.json
 ```
 
-In einer Template-Kopie werden automatisch deren eigener GitHub-Owner und Repositoryname verwendet. Die Source-URL bleibt über alle Releases gleich; die enthaltenen IPA-Links sind versionsgebunden.
+Template copies automatically use their own GitHub owner and repository name. The source URL stays the same across releases; IPA download URLs identify specific versions.
 
-Ein Push auf `main` oder `master` erzeugt zuerst einen Geräte-Release-Build ohne Apple-Signierung. Danach erzeugt `make_source.py` JSON, Icon und Prüfsumme aus der IPA. Der Release-Job veröffentlicht diese Dateien mit dem bereitgestellten `GITHUB_TOKEN`. Zusätzliche Zugangsdaten oder ein separates Download-Repository entfallen.
+A push to `main` or `master` first builds a release for an iOS device without Apple signing. `make_source.py` generates JSON, an icon, and a checksum from the IPA. The release job publishes these files using its provided `GITHUB_TOKEN`. No additional credentials or separate download repository are required.
 
-Für lokale Veröffentlichung mit der vorhandenen GitHub-CLI-Anmeldung:
+For local publication with your existing GitHub CLI authentication:
 
 ```powershell
 python scripts/publish_source.py --ipa downloads/run-123/sidestart-ios-unsigned.ipa
 ```
 
-Das Repository muss öffentlich sein. Der Publisher verändert dessen Sichtbarkeit nicht. Eine schon veröffentlichte Version/Build-Kombination mit anderen IPA-Bytes wird abgewiesen; für neue Builds eine höhere Buildnummer verwenden. Ältere Versionen werden nicht über neuere gesetzt.
+The destination repository must be public. The publisher does not change its visibility. It rejects an already published version/build combination containing different IPA bytes; use a higher build number for a new build. Older versions cannot replace newer ones.
 
-Schema: [AltStore: Make a Source](https://faq.altstore.io/developers/make-a-source). Vorbild: [NOOP source](https://github.com/ryanbr/noop/blob/main/altstore-source.json).
+## Shared catalog
+
+The app source can also be registered in the central [ios-apps catalog](https://github.com/code-by-fh/ios-apps). Its stable source URL is:
+
+```text
+https://raw.githubusercontent.com/code-by-fh/ios-apps/main/altstore-source.json
+```
+
+The catalog supports both open-source and closed-source apps with public distribution files. App releases do not update it automatically. Commit any registry changes, then manually run its refresh workflow:
+
+```powershell
+gh workflow run refresh-catalog.yml --repo code-by-fh/ios-apps --ref main
+```
+
+The catalog has no scheduled refresh. Pushes and pull requests run checks without publishing a catalog.
+
+Schema: [AltStore: Make a Source](https://faq.altstore.io/developers/make-a-source). Reference implementation: [NOOP source](https://github.com/ryanbr/noop/blob/main/altstore-source.json).

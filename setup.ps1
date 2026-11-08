@@ -16,11 +16,11 @@ function Invoke-Checked {
 Push-Location -LiteralPath $PSScriptRoot
 try {
     if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
-        throw 'Flutter fehlt. Zuerst .\scripts\install-flutter.ps1 ausfuehren und den angezeigten PATH setzen.'
+        throw 'Flutter is missing. Run .\scripts\install-flutter.ps1 first and apply the displayed PATH command.'
     }
     $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
     if (-not $pythonCommand) {
-        throw 'Python 3.10+ fehlt. Bitte Python installieren und zum PATH hinzufuegen.'
+        throw 'Python 3.10+ is missing. Install Python and add it to PATH.'
     }
     Invoke-Checked python @('scripts/bootstrap.py')
     Invoke-Checked flutter @('pub', 'get')
@@ -29,7 +29,7 @@ try {
     if ($Device) {
         Invoke-Checked flutter @('run', '-d', $Device)
     } else {
-        Write-Host 'Bereit. Starten mit: flutter run -d chrome (oder -d windows).'
+        Write-Host 'Ready. Start with: flutter run -d chrome (or -d windows).'
     }
 } finally {
     Pop-Location

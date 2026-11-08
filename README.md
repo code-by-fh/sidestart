@@ -1,55 +1,67 @@
 # SideStart
 
-Flutter-Starter und GitHub-Template für eigene iOS-, Android-, Windows- und Web-Apps. GitHub Actions baut eine unsignierte iOS-Geräte-App, veröffentlicht IPA und Source-JSON direkt in diesem Repository und hängt die Android-APK an denselben Release an. Lizenz: [MIT](LICENSE).
+A Flutter starter and GitHub template for iOS, Android, Windows, and web apps. GitHub Actions builds an unsigned iOS device app, publishes the IPA and source JSON in this repository, and attaches the Android APK to the same release. License: [MIT](LICENSE).
 
-## SideStart installieren
+## Install SideStart
 
-Nach erfolgreicher Veröffentlichung diese Quelle in SideStore unter **Sources → + / Add Source** hinzufügen:
+After a successful release, add this source in SideStore under **Sources → + / Add Source**:
 
 ```text
 https://github.com/code-by-fh/sidestart/releases/latest/download/altstore-source.json
 ```
 
-Die IPA wird mit deinem eigenen Apple Account signiert. SideStore benötigt seine übliche Einrichtung, WLAN und die lokale VPN-Verbindung. Bei kostenloser Signierung muss die App regelmäßig erneuert werden. Details: [Sideloading](docs/SIDELOADING.md).
+The IPA is signed with your own Apple Account. SideStore requires its usual setup, Wi-Fi, and local VPN connection. Free account signing requires regular app renewal. See [Sideloading](docs/SIDELOADING.md).
 
-## Für eine neue App verwenden
+The shared catalog for all registered apps is hosted separately:
 
-Auf GitHub **Use this template → Create a new repository** wählen und das neue App-Repository öffentlich anlegen. Alternativ mit GitHub CLI:
+```text
+https://raw.githubusercontent.com/code-by-fh/ios-apps/main/altstore-source.json
+```
+
+Publishing an app release does not update that catalog automatically. After the app source is ready, manually run **Actions → Refresh app catalog → Run workflow → main** in [ios-apps](https://github.com/code-by-fh/ios-apps), or use:
 
 ```powershell
-gh repo create meine-app --template code-by-fh/sidestart --public --clone
-cd meine-app
-python scripts/configure_app.py --name meine_app --organization dev.meinname --display-name "Meine App"
+gh workflow run refresh-catalog.yml --repo code-by-fh/ios-apps --ref main
+```
+
+## Use this template for a new app
+
+On GitHub, choose **Use this template → Create a new repository** and create a public app repository. Alternatively, use GitHub CLI:
+
+```powershell
+gh repo create my-app --template code-by-fh/sidestart --public --clone
+cd my-app
+python scripts/configure_app.py --name my_app --organization dev.example --display-name "My App"
 git add app-config.json pubspec.yaml lib test
 git commit -m "Configure new app"
 git push
 ```
 
-`dev.meinname` und `meine_app` für jede App passend wählen. Flutter erzeugt daraus deren Plattformkennungen. Einzigartige Kennungen ermöglichen die parallele Installation mehrerer Apps. `app-config.json` enthält Projektname, Organisation und Anzeigename. Der Einrichtungsbefehl passt auch Paketimporte, `pubspec.yaml` und die Titel der Beispielapp an.
+Choose an appropriate `dev.example` and `my_app` for each app. Flutter derives platform identifiers from these values. Unique identifiers allow multiple apps to be installed together. `app-config.json` holds the project name, organization, and display name. The configuration command also updates package imports, `pubspec.yaml`, and the example app titles.
 
-**Vor dem ersten Erzeugen nativer Plattformverzeichnisse konfigurieren.** Bei bereits vorhandenen nativen Projekten bricht das Skript ab, damit keine alten Bundle-IDs bestehen bleiben. Unveränderte Template-Kopien führen zunächst nur Checks aus. iOS-/Android-Builds und Veröffentlichung starten nach dem Commit eines eigenen Projektnamens oder einer eigenen Organisation.
+**Configure the app before generating native platform directories.** The script rejects identity changes when native projects already exist, preventing stale bundle identifiers. Unchanged template copies initially run checks only. iOS and Android builds and publication start after committing a unique project name or organization.
 
-Nach dem erfolgreichen Build lautet die neue Source-URL:
+After a successful build, the new source URL is:
 
 ```text
-https://github.com/DEIN-ACCOUNT/DEIN-REPOSITORY/releases/latest/download/altstore-source.json
+https://github.com/YOUR-ACCOUNT/YOUR-REPOSITORY/releases/latest/download/altstore-source.json
 ```
 
-Die Pipeline übernimmt automatisch den Namen des neuen GitHub-Repositories und die Metadaten der gebauten IPA. Ein zusätzliches Download-Repository oder Apple-Zertifikat in GitHub ist nicht nötig.
+The pipeline uses the new GitHub repository name and metadata from the built IPA. No separate download repository or Apple signing certificate in GitHub is required.
 
-## Lokal entwickeln
+## Develop locally
 
-Benötigt werden Python 3.10+, Git und das Flutter-SDK aus `.fvmrc`. Für einen ersten Test unter Windows reicht Chrome. Das SDK kann mit geprüftem Download installiert werden:
+Requirements: Python 3.10+, Git, and the Flutter SDK pinned in `.fvmrc`. Chrome is sufficient for an initial Windows test. Install the SDK using the verified download script:
 
 ```powershell
 .\scripts\install-flutter.ps1
-# Den vom Skript ausgegebenen PATH-Befehl ausführen, dann:
+# Run the PATH command printed by the script, then:
 .\setup.ps1 -Device chrome
 ```
 
-`bootstrap.py` erzeugt fehlende Plattformprojekte aus den offiziellen Vorlagen des gepinnten SDKs und erhält bestehende Dateien. Erzeugte native Verzeichnisse können für spätere eigene Anpassungen mit ins Repository aufgenommen werden.
+`bootstrap.py` generates missing platform projects from the pinned SDK's official templates and preserves existing files. Commit generated native directories when you need to customize them.
 
-Prüfungen:
+Run checks with:
 
 ```powershell
 python -m unittest discover -s scripts -p test_*.py
@@ -58,20 +70,22 @@ flutter analyze
 flutter test
 ```
 
-## Builds und Releases
+## Builds and releases
 
-Jeder Push auf `main` oder `master` baut und veröffentlicht die App. Manuelle Läufe sind ebenfalls möglich. Pull Requests veröffentlichen nichts. Die erzeugten Release-Tags wie `v0.1.0-build.3` lösen keine weiteren Builds aus. Die Buildnummer stammt aus `github.run_number`, die sichtbare Version aus `pubspec.yaml`.
+Each push to `main` or `master` builds and publishes the configured app. Manual runs are also supported. Pull requests never publish. Generated release tags such as `v0.1.0-build.3` do not trigger additional builds. The build number comes from `github.run_number`; the app version comes from `pubspec.yaml`.
 
-Die Source-JSON übernimmt Bundle-ID, App-Name, Version, Buildnummer, Mindest-iOS-Version, Größe und Berechtigungen aus der tatsächlichen IPA. Die Versionshistorie bleibt erhalten. Ein Release wird zunächst als Entwurf mit vollständigen Dateien vorbereitet und erst danach freigeschaltet. Ein Android-Fehler verhindert die iOS-Veröffentlichung nicht.
+Source JSON derives the bundle identifier, app name, version, build number, minimum iOS version, size, and permissions from the actual IPA. Version history is preserved. A release is first prepared as a draft with all required files, then published. An Android build failure does not block iOS publication.
 
-Das Repository muss öffentlich sein; die Pipeline verwendet ausschließlich das automatisch bereitgestellte `GITHUB_TOKEN` mit Schreibrechten im Release-Job. Für erste Template-Kopien können GitHub Actions beziehungsweise deren Schreibrechte einmalig aktiviert werden müssen.
+The repository must be public. The pipeline uses only the automatically provided `GITHUB_TOKEN`, with write access in publication jobs. New template copies may require GitHub Actions and workflow write permissions to be enabled once.
 
-Die Android-APK verwendet eine Entwicklungs-Signierung für persönliche Tests. Für dauerhafte Android-Updates später einen festen eigenen Schlüssel einrichten.
+The Android APK uses a development signing key for personal testing. Configure a permanent signing key before relying on Android updates across builds.
 
-## Vorhandene IPA manuell veröffentlichen
+## Publish an existing IPA manually
 
 ```powershell
 python scripts/publish_source.py --ipa downloads/run-123/sidestart-ios-unsigned.ipa
 ```
 
-Das Ziel wird aus dem aktuellen GitHub-Repository ermittelt. Ein anderes Ziel lässt sich explizit mit `--repository owner/repo` angeben. Bestehende private Repositories werden vom Publisher nicht eigenständig öffentlich gemacht.
+The destination is inferred from the current GitHub repository. Override it with `--repository owner/repo`. The publisher does not make existing private repositories public.
+
+All documentation, comments, UI text, messages, and metadata in this project must be written in English. See [AGENTS.md](AGENTS.md).

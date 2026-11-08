@@ -110,7 +110,7 @@ jobs:
           retention-days: 30
 
   release:
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    if: github.event_name != 'pull_request' && !github.event.repository.private && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     needs: ios
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -134,7 +134,7 @@ jobs:
         run: python3 scripts/publish_source.py --repository "$SOURCE_REPOSITORY" --ipa release-assets/sidestart-ios-unsigned.ipa --target "$BUILD_COMMIT"
 
   attach-android:
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    if: github.event_name != 'pull_request' && !github.event.repository.private && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     needs: [android, release]
     runs-on: ubuntu-latest
     timeout-minutes: 10
